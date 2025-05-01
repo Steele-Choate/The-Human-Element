@@ -764,7 +764,9 @@ def handle_room_entry(room_name):
     if drones_here:
         for drone in drones_here:
             drone_display_name = f"{drone} ({room_name})"
-            if drone_display_name not in known_drones:
+            existing_entries = drone_listbox.get(0, tk.END)
+
+            if not any(drone_display_name in entry for entry in existing_entries):
                 known_drones.add(drone_display_name)
 
                 # Set initial status if not already assigned
@@ -781,7 +783,7 @@ def handle_room_entry(room_name):
         ]
 
         if new_drones and mission_given:
-            update_chat_log(f"🤖 You notice a drone in the area.")
+            update_chat_log(f"🤖 You notice a drone in the area. Type 'interact' to talk to it.")
 
     # --- Puzzle Items ---
     if not truth_mode:
@@ -834,7 +836,7 @@ def move_player(direction):
         player_location = next_room
         update_chat_log(f"🚶 You move {direction}.")
 
-        handle_room_entry(player_location)  # ← Use helper function
+        handle_room_entry(player_location)
 
     else:
         update_chat_log("❌ You can't go that way.")
@@ -1063,10 +1065,15 @@ def toggle_drone_status(event):
     next_status = status_cycle[next_index]
     drone_status[name_without_icon] = next_status
 
-    # Update listbox with icon + full name
+    # Preserve existing color before replacing text
+    current_fg = drone_listbox.itemcget(index, "fg")
+
+    # Replace text and reapply color
     new_display = f"{status_icons[next_status]} {name_without_icon}"
     drone_listbox.delete(index)
     drone_listbox.insert(index, new_display)
+    drone_listbox.itemconfig(index, fg=current_fg)
+
 
 drone_listbox.bind("<Double-Button-1>", toggle_drone_status)
 
@@ -1089,7 +1096,7 @@ def disable_drone():
 
     target_drone = drones_here[0]
 
-    # Prevent disableing the same drone twice
+    # Prevent disabling the same drone twice
     if target_drone in eliminated_drones:
         update_chat_log(f"❌ {target_drone} has already been neutralized. There is no need to disable again.")
         return
@@ -1143,9 +1150,11 @@ def interact_with_drone():
         return
 
     known_drones.add(display_name)
+    existing_entries = drone_listbox.get(0, tk.END)
 
-    if display_name not in drone_listbox.get(0, tk.END):
-        drone_listbox.insert(tk.END, display_name)  # Show formatted name in list
+    if not any(display_name in entry for entry in existing_entries):
+        icon = status_icons[drone_status.get(display_name, "Uncertain")]
+        drone_listbox.insert(tk.END, f"{icon} {display_name}")
 
     update_chat_log(f"🤖 You approach {target_drone}. Their robotic label reads: {target_drone}")
 
@@ -1424,8 +1433,11 @@ def process_command(event=None):
 def handle_inventory_click(index):
     if index < len(inventory):
         item = inventory[index]
-        use_item(item)
 
+        if item.startswith("AI Disruptor"):
+            disable_drone()
+        else:
+            use_item(item)
 
 def handle_number_key(event):
     if input_box.focus_get() != input_box:
@@ -1434,7 +1446,13 @@ def handle_number_key(event):
 
         if index < len(inventory):
             item = inventory[index]
-            use_item(item)
+
+            # Special behavior for AI Disruptor
+            if item.startswith("AI Disruptor"):
+                disable_drone()
+            else:
+                use_item(item)
+
 
 # Bind keys 1–9 and 0 (0 comes last and maps to index 9)
 for key in "1234567890":
