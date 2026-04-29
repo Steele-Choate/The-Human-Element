@@ -65,4 +65,6 @@ project-folder/
 
 └── generated plot/image output files
 
+
+
 Note: Some JSON log files and generated plot files are created automatically when the program runs.
